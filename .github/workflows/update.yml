@@ -39,6 +39,7 @@ jobs:
             echo "변경 없음"
           else
             git commit -m "Update patch notes"
+            git pull --rebase
             git push
           fi
 
