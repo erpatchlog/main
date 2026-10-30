@@ -47,11 +47,15 @@ jobs:
           mkdir _site
           cp index.html _site/index.html
           cp google*.html _site/ 2>/dev/null || true
+          cp sitemap.xml _site/ 2>/dev/null || true
 
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
+      - name: Deploy
+        id: deploy
+        uses: actions/deploy-pages@v4          
       - name: Deploy
         id: deploy
         uses: actions/deploy-pages@v4
