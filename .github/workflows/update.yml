@@ -42,6 +42,7 @@ jobs:
             git pull --rebase
             git push
           fi
+          
       - name: Build site
         run: |
           mkdir _site
@@ -53,9 +54,6 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: _site
-      - name: Deploy
-        id: deploy
-        uses: actions/deploy-pages@v4          
       - name: Deploy
         id: deploy
         uses: actions/deploy-pages@v4
