@@ -42,8 +42,7 @@ jobs:
             git pull --rebase
             git push
           fi
-
-     - name: Build site
+      - name: Build site
         run: |
           mkdir _site
           cp index.html _site/index.html
