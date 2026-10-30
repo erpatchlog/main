@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이터널 리턴 패치노트</title>
+<style>
+  :root {
+    --bg: #12141a; --panel: #1b1e27; --panel2: #232734; --line: #2e3344;
+    --text: #e6e8f0; --dim: #8b91a5; --accent: #e8463c;
+    --buff: #4cc38a; --nerf: #ef5a5a; --adjust: #e9b949;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.6 "Malgun Gothic", "Apple SD Gothic Neo", sans-serif; }
+  header { position: sticky; top: 0; z-index: 5; background: rgba(18,20,26,.95); backdrop-filter: blur(6px); border-bottom: 1px solid var(--line); }
+  .bar { max-width: 1100px; margin: 0 auto; padding: 14px 16px 0; display: flex; flex-wrap: wrap; gap: 10px 14px; align-items: center; }
+  .bar h1 { font-size: 18px; margin: 0; flex: 1 1 auto; }
+  .bar h1 b { color: var(--accent); }
+  select { background: var(--panel2); color: var(--text); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; max-width: 100%; }
+  a { color: #7fb2ff; }
+  .tabs { max-width: 1100px; margin: 0 auto; padding: 10px 16px 0; display: flex; gap: 4px; }
+  .tabs button { background: none; border: 0; border-bottom: 3px solid transparent; color: var(--dim); font: inherit; font-weight: 700; padding: 8px 14px; cursor: pointer; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .tabs button span { font-weight: 400; font-size: 13px; margin-left: 4px; color: var(--dim); }
+  main { max-width: 1100px; margin: 0 auto; padding: 18px 16px 60px; }
+  .empty { color: var(--dim); text-align: center; padding: 60px 0; }
+
+  /* 업데이트 */
+  .ugroup > h2 { font-size: 16px; margin: 26px 0 10px; padding-left: 10px; border-left: 4px solid var(--accent); }
+  .ugroup:first-child > h2 { margin-top: 0; }
+  details.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 10px; }
+  details.card > summary { cursor: pointer; padding: 12px 16px; font-weight: 700; }
+  .card .body { padding: 0 18px 14px; }
+  .body img { max-width: 100%; max-height: 240px; width: auto; height: auto; border-radius: 6px; }
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 12px; }
+  .chip { background: var(--panel2); border: 1px solid var(--line); border-radius: 14px; padding: 2px 10px; font-size: 13px; }
+  .body table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  .body td, .body th { border: 1px solid var(--line); padding: 4px 8px; }
+  .body strong { color: #ffd479; }
+  .body em { color: var(--dim); }
+
+  /* 실험체 / 아이템 */
+  .group { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px 16px 16px; margin-bottom: 14px; }
+  .group h2 { font-size: 16px; margin: 0 0 12px; }
+  .group h2 small { color: var(--dim); font-weight: 400; margin-left: 6px; }
+  .group.buff h2 { color: var(--buff); }
+  .group.nerf h2 { color: var(--nerf); }
+  .group.adjust h2 { color: var(--adjust); }
+  .grid { display: flex; flex-wrap: wrap; gap: 8px; }
+  .icon { padding: 0; margin: 0; background: var(--panel2); cursor: pointer; border: 2pt solid transparent; border-radius: 6px; overflow: hidden; display: block; }
+  .icon.selected { border: 2pt solid rgb(255, 0, 0); }
+  .icon img { display: block; }
+  .icon.char img { width: 69px; height: 93px; object-fit: cover; }
+  .icon.item img { width: 82px; height: 61px; object-fit: contain; }
+  .icon .noimg { display: flex; align-items: center; justify-content: center; text-align: center; color: var(--text); font-size: 12px; line-height: 1.3; padding: 4px; }
+  .icon.char .noimg { width: 69px; height: 93px; }
+  .icon.item .noimg { width: 82px; height: 61px; }
+  .grade-Common { background: #3a3d45; } .grade-Uncommon { background: #2d5a3a; } .grade-Rare { background: #2a4a78; }
+  .grade-Epic { background: #573479; } .grade-Legend { background: #7a5a1c; } .grade-Mythic { background: #7a2626; }
+  .detail { margin-top: 14px; background: var(--panel2); border-radius: 8px; padding: 14px 18px; }
+  .detail h3 { margin: 0 0 6px; font-size: 17px; }
+  .detail .meta { color: var(--dim); font-size: 13px; margin-bottom: 8px; }
+  .detail .desc { color: #c7cbd8; margin: 0 0 8px; }
+  .detail ul { margin: 6px 0; padding-left: 22px; }
+  .detail strong { color: #ffd479; }
+  .detail li[data-s] > p:first-child::after { margin-left: 6px; font-size: 12px; font-weight: 700; }
+  .detail li[data-s="buff"] > p:first-child::after { content: "▲ 상향"; color: var(--buff); }
+  .detail li[data-s="nerf"] > p:first-child::after { content: "▼ 하향"; color: var(--nerf); }
+  .detail li[data-s="adjust"] > p:first-child::after { content: "◆ 엇갈림"; color: var(--adjust); }
+  .badge { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 10px; margin-left: 8px; vertical-align: 2px; color: #111; }
+  .badge.buff { background: var(--buff); } .badge.nerf { background: var(--nerf); } .badge.adjust { background: var(--adjust); }
+  .hint { color: var(--dim); font-size: 13px; margin: -4px 0 14px; }
+  .hint a, footer a { color: var(--dim); }
+  footer { max-width: 1100px; margin: 0 auto; padding: 18px 16px 40px; border-top: 1px solid var(--line); color: var(--dim); font-size: 12px; line-height: 1.8; }
+  footer p { margin: 0; }
+</style>
+</head>
+<body>
+<header>
+  <div class="bar">
+    <h1><b>ETERNAL RETURN</b> 패치노트 정리</h1>
+    <select id="patchSel" aria-label="패치 선택"></select>
+    <a id="orig" target="_blank" rel="noopener">원문 보기 ↗</a>
+  </div>
+  <nav class="tabs" id="tabs">
+    <button data-tab="update">업데이트<span></span></button>
+    <button data-tab="chars">실험체<span></span></button>
+    <button data-tab="items">아이템<span></span></button>
+  </nav>
+</header>
+<main id="main"></main>
+<footer>
+  <p>패치노트 출처: <a href="https://playeternalreturn.com/posts/news?categoryPath=patchnote" target="_blank" rel="noopener">이터널 리턴 공식 홈페이지</a></p>
+  <p>실험체·아이템 이미지 출처: <a href="https://dak.gg/er" target="_blank" rel="noopener">DAK.GG</a></p>
+  <p>이터널 리턴의 게임 콘텐츠와 이미지에 대한 저작권은 님블뉴런(Nimble Neuron)에 있습니다.</p>
+  <p>이 페이지는 개인이 만든 비공식 팬 도구로, 님블뉴런 및 DAK.GG와 관련이 없습니다. 버프·너프·조정 분류는 수치 변화를 바탕으로 자동 판단한 결과이므로 정확한 내용은 원문을 확인해 주세요.</p>
+</footer>
+
+<script src="../data/gamedata.js"></script>
+<script src="../data/patches.js"></script>
+<script>
+const GD = window.ER_GAMEDATA || { characters: [], items: [] };
+const PATCHES = (window.ER_PATCHES || []).slice().sort((a, b) => b.id - a.id);
+const $ = (s, r = document) => r.querySelector(s);
+const clean = s => (s || '').replace(/ /g, ' ').replace(/\s+/g, ' ').trim();
+const norm = s => clean(s).replace(/\s/g, '');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+const charMap = new Map(GD.characters.map(c => [norm(c.name), c]));
+const itemsByLen = GD.items.slice().sort((a, b) => b.name.length - a.name.length);
+
+const KIND = { buff: '버프', nerf: '너프', adjust: '조정' };
+const ITEM_SECTIONS = ['무기', '방어구', '아이템', '소모품'];
+const UPDATE_GROUPS = [
+  ['신규 실험체', t => /신규 실험체/.test(t)],
+  ['신규 아이템', t => /아이템/.test(t)],
+  ['스킨', t => /스킨|이모티콘/.test(t)],
+  ['시스템', t => /시스템|매치/.test(t)],
+  ['특성 · 스킬', t => /특성|전술 스킬|무기 스킬/.test(t)],
+  ['버그 수정', t => /버그/.test(t)],
+  ['기타', () => true],
+];
+
+// ---------------- 파싱 ----------------
+function splitSections(html) {
+  const root = new DOMParser().parseFromString(`<div id="root">${html}</div>`, 'text/html').getElementById('root');
+  root.querySelectorAll('[style],[class]').forEach(e => { e.removeAttribute('style'); e.removeAttribute('class'); });
+  const sections = [];
+  let cur = { title: '개요', nodes: [] };
+  for (const n of root.children) {
+    if (n.tagName === 'H5') { sections.push(cur); cur = { title: clean(n.textContent), nodes: [] }; }
+    else cur.nodes.push(n);
+  }
+  sections.push(cur);
+  return sections;
+}
+
+function isEmpty(n) { return !clean(n.textContent) && !n.querySelector('img, table'); }
+
+// <p><strong>이름</strong></p> 처럼 굵은 글씨만 있는 짧은 줄
+function boldOnly(n) {
+  if (/^H[1-4]$/.test(n.tagName)) return clean(n.textContent).length <= 30;
+  if (n.tagName !== 'P') return false;
+  const s = n.querySelector('strong, b');
+  const t = clean(n.textContent);
+  return !!s && t === clean(s.textContent) && t.length <= 30;
+}
+
+// 하위 목록을 뺀 li 자신의 텍스트
+function ownText(li) {
+  const c = li.cloneNode(true);
+  c.querySelectorAll('ul, ol').forEach(x => x.remove());
+  return clean(c.textContent);
+}
+
+function leafLines(lists) {
+  const out = [];
+  for (const l of lists) l.querySelectorAll('li').forEach(li => { const t = ownText(li); if (t) out.push(t); });
+  return out;
+}
+
+function findChar(name) {
+  const n = norm(name);
+  return charMap.get(n) || GD.characters.find(c => n.startsWith(norm(c.name)));
+}
+
+function matchItem(text) {
+  for (const it of itemsByLen) {
+    if (text.startsWith(it.name)) {
+      const next = text[it.name.length];
+      if (next === undefined || /[\s(\[-]/.test(next)) return it;
+    }
+  }
+  return null;
+}
+
+// ---------------- 버프/너프 분류 ----------------
+// 버프: 공격력·스킬 증폭·피해량 등 증가, 쿨타임 감소
+// 너프: 공격력·스킬 증폭·피해량 등 감소, 쿨타임 증가
+// 조정: 어떤 수치는 오르고 어떤 수치는 내림 (스킬끼리 엇갈림, 초반↑ 후반↓ 등)
+const BUFF_WORDS = /상향|강화|늘리|늘려|늘어|높이|높여|높아지|증가시|보완/g;
+const NERF_WORDS = /하향|낮추|낮춰|줄이|줄여|덜어|약화/g;
+// 숫자가 작을수록 좋은 항목 (쿨타임, 소모량 등). '쿨다운 감소'처럼 '감소'가 붙으면 클수록 좋음
+const LOWER_BETTER = /쿨다운|쿨타임|재사용 대기|대기 시간|소모|비용|시전 시간|필요|누적량|지연|받는 피해|받는 스킬 피해/;
+// 증감만으로 좋고 나쁨을 단정하기 애매한 항목 → 수치가 바뀌면 조정
+const AMBIGUOUS = /대신 받는 피해/;
+
+// 한 줄(A → B)의 변화: 'buff' | 'nerf' | 'adjust' | null(수치 비교 불가)
+function lineScore(line) {
+  if (!line.includes('→')) {
+    if (/\(신규\)|추가됩니다|새로 추가/.test(line)) return 'buff';
+    if (/\(삭제\)|삭제됩니다|제거됩니다/.test(line)) return 'nerf';
+    return null;
+  }
+  const i = line.indexOf('→');
+  const a = (line.slice(0, i).match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  const b = (line.slice(i + 1).match(/\d+(?:\.\d+)?/g) || []).map(Number);
+  const k = Math.min(a.length, b.length);
+  let up = 0, down = 0;
+  for (let j = 1; j <= k; j++) {   // 앞쪽에 항목 이름 속 숫자(예: '2타')가 섞일 수 있어 뒤에서부터 맞춰 비교
+    const x = a[a.length - j], y = b[b.length - j];
+    if (y > x) up++; else if (y < x) down++;
+  }
+  if (up && down) return 'adjust';   // 레벨별 수치가 엇갈림 (초반↑ 후반↓ 또는 기본↑ 계수↓)
+  if (!up && !down) return null;
+  const label = line.slice(0, i);
+  if (AMBIGUOUS.test(label)) return 'adjust';
+  const lowerBetter = LOWER_BETTER.test(label) && !/감소|감속/.test(label);
+  return (up > 0) !== lowerBetter ? 'buff' : 'nerf';
+}
+
+function classify(desc, lines) {
+  const r = lines.map(lineScore).filter(Boolean);
+  if (r.length) {
+    if (r.includes('adjust') || (r.includes('buff') && r.includes('nerf'))) return 'adjust';
+    return r.includes('buff') ? 'buff' : 'nerf';
+  }
+  // 수치 변화가 없는 경우(메커니즘 변경 등)만 개발자 코멘트로 판단
+  const b = (desc.match(BUFF_WORDS) || []).length;
+  const n = (desc.match(NERF_WORDS) || []).length;
+  if (b && !n) return 'buff';
+  if (n && !b) return 'nerf';
+  return 'adjust';
+}
+
+// 상세 화면에서 줄마다 ▲▼◆ 표시를 붙이기 위해 li 에 결과를 기록
+function markLines(list) {
+  list.querySelectorAll('li').forEach(li => { const s = lineScore(ownText(li)); if (s) li.dataset.s = s; });
+}
+
+// ---------------- 실험체 ----------------
+function parseChars(sections) {
+  const list = [];
+  for (const sec of sections) {
+    let cur = null;
+    for (const n of sec.nodes) {
+      if (isEmpty(n)) continue;
+      if (boldOnly(n)) {
+        const name = clean(n.textContent);
+        cur = { name, info: findChar(name), desc: [], lists: [] };
+        list.push(cur);
+        continue;
+      }
+      if (!cur) continue;
+      if (n.tagName === 'UL' || n.tagName === 'OL') cur.lists.push(n);
+      else cur.desc.push(clean(n.textContent));
+    }
+  }
+  for (const c of list) {
+    c.lists.forEach(markLines);
+    c.kind = classify(c.desc.join(' '), leafLines(c.lists));
+  }
+  return list;
+}
+
+// ---------------- 아이템 ----------------
+function parseItems(sections) {
+  const map = new Map();
+  const add = (name, info, cat, rest, nested) => {
+    let it = map.get(name);
+    if (!it) { it = { name, info, cat, lines: [], html: '' }; map.set(name, it); }
+    if (rest) {
+      const s = lineScore(rest);
+      it.lines.push(rest);
+      it.html += `<li${s ? ` data-s="${s}"` : ''}><p>${esc(rest)}</p></li>`;
+    }
+    if (nested) { markLines(nested); it.lines.push(...leafLines([nested])); it.html += nested.innerHTML; }
+  };
+  const handleLi = (li, cat) => {
+    const own = ownText(li);
+    const nested = li.querySelector(':scope > ul, :scope > ol');
+    const m = matchItem(own);
+    if (m) return add(m.name, m, cat, clean(own.slice(m.name.length)), nested);
+    if (nested && [...nested.children].some(c => matchItem(ownText(c)))) {
+      for (const c of nested.children) handleLi(c, own);   // 무기 종류 등 분류 줄
+      return;
+    }
+    add(own, null, cat, '', nested);
+  };
+  for (const sec of sections) {
+    let cat = sec.title;
+    for (const n of sec.nodes) {
+      if (isEmpty(n)) continue;
+      if (boldOnly(n)) cat = clean(n.textContent);
+      else if (n.tagName === 'UL' || n.tagName === 'OL') for (const li of n.children) handleLi(li, cat);
+    }
+  }
+  const list = [...map.values()];
+  for (const it of list) it.kind = classify('', it.lines);
+  return list;
+}
+
+function parsePatch(p) {
+  const sections = splitSections(p.html).filter(s => !/코발트/.test(s.title));
+  const charSecs = [], itemSecs = [], updSecs = [];
+  for (const s of sections) {
+    if (s.title === '실험체') charSecs.push(s);
+    else if (ITEM_SECTIONS.includes(s.title)) itemSecs.push(s);
+    else if (s.nodes.some(n => !isEmpty(n))) updSecs.push(s);
+  }
+  return { chars: parseChars(charSecs), items: parseItems(itemSecs), updates: updSecs };
+}
+
+// ---------------- 화면 ----------------
+let current = null, tab = 'update';
+try { tab = localStorage.getItem('er-tab') || 'update'; } catch (e) {}
+
+// 카드 상단 요약: 하위 제목(h3/h4)과 등급이 붙은 스킨 이름
+function chipsHtml(sec) {
+  const names = [];
+  for (const n of sec.nodes) {
+    if (/^H[34]$/.test(n.tagName)) names.push(clean(n.textContent));
+    n.querySelectorAll && n.querySelectorAll('strong').forEach(s => {
+      const t = clean(s.textContent);
+      if (/\((일반|고급|희귀|영웅|전설|신화)\)$/.test(t)) names.push(t);
+    });
+  }
+  const uniq = [...new Set(names.filter(Boolean))];
+  return uniq.length ? `<div class="chips">${uniq.map(t => `<span class="chip">${esc(t)}</span>`).join('')}</div>` : '';
+}
+
+function renderUpdates(secs) {
+  if (!secs.length) return '<p class="empty">업데이트 내용이 없습니다.</p>';
+  const groups = UPDATE_GROUPS.map(([name]) => ({ name, secs: [] }));
+  for (const s of secs) {
+    const gi = s.title === '개요' ? groups.length - 1 : UPDATE_GROUPS.findIndex(([, f]) => f(s.title));
+    groups[gi].secs.push(s);
+  }
+  return groups.filter(g => g.secs.length).map(g => `
+    <section class="ugroup"><h2>${esc(g.name)}</h2>
+      ${g.secs.map(s => `<details class="card" open><summary>${esc(s.title)}</summary>
+        ${chipsHtml(s)}<div class="body">${s.nodes.filter(n => !isEmpty(n)).map(n => n.outerHTML).join('')}</div></details>`).join('')}
+    </section>`).join('');
+}
+
+function iconHtml(entry, type, idx) {
+  const info = entry.info;
+  const grade = type === 'item' && info ? ` grade-${info.grade}` : '';
+  const inner = info
+    ? `<img src="${esc(info.img)}" alt="${esc(entry.name)}" loading="lazy" onerror="this.outerHTML='<div class=noimg>${esc(entry.name).replace(/'/g, '')}</div>'">`
+    : `<div class="noimg">${esc(entry.name)}</div>`;
+  return `<button class="icon ${type}${grade}" data-idx="${idx}" title="${esc(entry.name)}">${inner}</button>`;
+}
+
+function renderGrid(list, type, label) {
+  if (!list.length) return `<p class="empty">이번 패치에는 ${label} 변경 사항이 없습니다.</p>`;
+  return `<p class="hint">${type === 'char' ? '초상화를' : '아이템을'} 클릭하면 패치 내용이 아래에 표시됩니다. · 이미지 출처: <a href="https://dak.gg/er" target="_blank" rel="noopener">DAK.GG</a></p>` +
+    ['buff', 'nerf', 'adjust'].map(k => {
+      const idxs = list.map((e, i) => e.kind === k ? i : -1).filter(i => i >= 0);
+      if (!idxs.length) return '';
+      return `<section class="group ${k}"><h2>${KIND[k]}<small>${idxs.length}</small></h2>
+        <div class="grid">${idxs.map(i => iconHtml(list[i], type, i)).join('')}</div>
+        <div class="detail" hidden></div></section>`;
+    }).join('');
+}
+
+function detailHtml(e, type) {
+  const meta = type === 'item' && e.cat ? `<div class="meta">${esc(e.cat)}</div>` : '';
+  const desc = type === 'char' ? e.desc.map(d => `<p class="desc">${esc(d)}</p>`).join('') : '';
+  const body = type === 'char' ? e.lists.map(l => l.outerHTML).join('') : `<ul>${e.html}</ul>`;
+  return `<h3>${esc(e.name)}<span class="badge ${e.kind}">${KIND[e.kind]}</span></h3>${meta}${desc}${body}`;
+}
+
+function bindGrid(list, type) {
+  const main = $('#main');
+  main.addEventListener('click', ev => {
+    const btn = ev.target.closest('.icon');
+    if (!btn) return;
+    const was = btn.classList.contains('selected');
+    main.querySelectorAll('.icon.selected').forEach(b => b.classList.remove('selected'));
+    main.querySelectorAll('.detail').forEach(d => { d.hidden = true; d.innerHTML = ''; });
+    if (was) return;
+    btn.classList.add('selected');
+    const box = btn.closest('.group').querySelector('.detail');
+    box.innerHTML = detailHtml(list[+btn.dataset.idx], type);
+    box.hidden = false;
+  });
+}
+
+function render() {
+  document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
+  const old = $('#main'), main = old.cloneNode(false);   // 이전 클릭 리스너 제거
+  old.replaceWith(main);
+  if (!current) {
+    // 첫 실행: 수집기가 데이터를 만들 때까지 5초마다 새로고침 (최대 약 2분)
+    const tries = +(location.hash.match(/r=(\d+)/) || [0, 0])[1];
+    if (tries < 24) {
+      main.innerHTML = '<p class="empty">패치노트를 가져오는 중입니다… (첫 실행 시 30초 정도 걸립니다)</p>';
+      setTimeout(() => { location.hash = 'r=' + (tries + 1); location.reload(); }, 5000);
+    } else {
+      main.innerHTML = '<p class="empty">아직 수집된 패치노트가 없습니다.<br>인터넷 연결을 확인한 뒤 트레이의 ER 아이콘 → "지금 확인"을 눌러 주세요.</p>';
+    }
+    return;
+  }
+  const d = current.parsed;
+  if (tab === 'update') main.innerHTML = renderUpdates(d.updates);
+  if (tab === 'chars') { main.innerHTML = renderGrid(d.chars, 'char', '실험체'); bindGrid(d.chars, 'char'); }
+  if (tab === 'items') { main.innerHTML = renderGrid(d.items, 'item', '아이템'); bindGrid(d.items, 'item'); }
+}
+
+function selectPatch(id) {
+  current = PATCHES.find(p => p.id === id) || null;
+  if (current && !current.parsed) current.parsed = parsePatch(current);
+  $('#orig').href = current ? current.url : '#';
+  const counts = current ? [current.parsed.updates.length, current.parsed.chars.length, current.parsed.items.length] : [0, 0, 0];
+  document.querySelectorAll('#tabs button span').forEach((s, i) => s.textContent = counts[i] || '');
+  render();
+}
+
+const sel = $('#patchSel');
+sel.innerHTML = PATCHES.map(p => `<option value="${p.id}">${esc(p.title)} (${p.date.slice(0, 10)})</option>`).join('');
+sel.addEventListener('change', () => selectPatch(+sel.value));
+$('#tabs').addEventListener('click', ev => {
+  const b = ev.target.closest('button');
+  if (!b) return;
+  tab = b.dataset.tab;
+  try { localStorage.setItem('er-tab', tab); } catch (e) {}
+  render();
+});
+selectPatch(PATCHES.length ? PATCHES[0].id : 0);
+</script>
+</body>
+</html>
