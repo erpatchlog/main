@@ -469,6 +469,10 @@ function bindHist() {
   main.addEventListener('click', ev => {
     const btn = ev.target.closest('.icon');
     if (!btn) return;
+    const h = list[+btn.dataset.idx];
+    if (window.amplitude) amplitude.track('History Character Clicked', {
+      name: h.name, changes: h.entries.length, kind: h.entries.length ? h.entries[0].ch.kind : 'none'
+    });
     const was = btn.classList.contains('selected');
     main.querySelectorAll('.icon.selected').forEach(b => b.classList.remove('selected'));
     box.hidden = true; box.innerHTML = '';
