@@ -407,7 +407,8 @@ function bindGrid(list, type) {
     if (!btn) return;
     const entry = list[+btn.dataset.idx];
     if (window.amplitude) amplitude.track('Patch Item Clicked', {
-      type, name: entry.name, kind: entry.kind, patch: current && current.title
+      type, name: entry.name, kind: entry.kind, patch: current && current.title,
+      position: Array.prototype.indexOf.call(btn.parentElement.children, btn) + 1
     });
     const was = btn.classList.contains('selected');
     main.querySelectorAll('.icon.selected').forEach(b => b.classList.remove('selected'));
@@ -467,7 +468,11 @@ function bindHist() {
     if (!btn) return;
     const h = list[+btn.dataset.idx];
     if (window.amplitude) amplitude.track('History Character Clicked', {
-      name: h.name, changes: h.entries.length, kind: h.entries.length ? h.entries[0].ch.kind : 'none'
+      name: h.name, changes: h.entries.length, kind: h.entries.length ? h.entries[0].ch.kind : 'none',
+      position: +btn.dataset.idx + 1,
+      in_latest: !!h.entries.length && h.entries[0].patch === PATCHES[0],
+      grid_total: list.length, grid_changed: list.filter(x => x.entries.length).length,
+      grid_latest: list.filter(x => x.entries.length && x.entries[0].patch === PATCHES[0]).length
     });
     const was = btn.classList.contains('selected');
     main.querySelectorAll('.icon.selected').forEach(b => b.classList.remove('selected'));
@@ -514,7 +519,10 @@ function selectPatch(id) {
 
 const sel = $('#patchSel');
 sel.innerHTML = PATCHES.map(p => `<option value="${p.id}">${esc(p.title)} (${p.date.slice(0, 10)})</option>`).join('');
-sel.addEventListener('change', () => selectPatch(+sel.value));
+sel.addEventListener('change', () => {
+  selectPatch(+sel.value);
+  if (window.amplitude) amplitude.track('Patch Selected', { patch: current && current.title });
+});
 $('#tabs').addEventListener('click', ev => {
   const b = ev.target.closest('button');
   if (!b) return;
