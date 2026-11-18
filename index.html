@@ -255,7 +255,12 @@ function lineScore(line) {
   if (!up && !down) return null;
   const label = line.slice(0, i);
   if (AMBIGUOUS.test(label)) return 'adjust';
-  const lowerBetter = LOWER_BETTER.test(label) && !/감소|감속/.test(label);
+  let lowerBetter = LOWER_BETTER.test(label) && !/감소|감속/.test(label);
+  // 발동 조건: '체력 60% 이상' → '70% 이상'은 조건이 까다로워지므로 너프, '이하/미만'은 반대
+  if (/발동 조건/.test(label)) {
+    if (/이상/.test(label)) lowerBetter = true;
+    else if (/이하|미만/.test(label)) lowerBetter = false;
+  }
   return (up > 0) !== lowerBetter ? 'buff' : 'nerf';
 }
 
