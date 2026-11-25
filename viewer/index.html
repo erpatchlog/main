@@ -234,6 +234,8 @@ const AMBIGUOUS = /대신 받는 피해/;
 // 한 줄(A → B)의 변화: 'buff' | 'nerf' | 'adjust' | null(수치 비교 불가)
 function lineScore(line) {
   if (!line.includes('→')) {
+    // '~시에만 …하도록 변경 (신규)'처럼 발동 조건을 좁히는 변경은 신규 표기여도 너프
+    if (/(시에만|때만|경우에만).*변경/.test(line)) return 'nerf';
     if (/\(신규\)|추가됩니다|새로 추가/.test(line)) return 'buff';
     if (/\(삭제\)|삭제됩니다|제거됩니다/.test(line)) return 'nerf';
     return null;
