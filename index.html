@@ -5,9 +5,20 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <script src="https://cdn.amplitude.com/script/46b74a7ee8f4e51a4739d9caa7ae5a76.js"></script>
 <script>
+  // 운영자 본인 방문 제외: 주소 끝에 ?me 를 붙여 한 번 열면 이 브라우저는 기록을 보내지 않음
+  // (다시 기록하려면 ?notme 로 한 번 열기)
+  window.erOwner = false;
+  try {
+    var erq = new URLSearchParams(location.search);
+    if (erq.has('me')) localStorage.setItem('er_owner', '1');
+    if (erq.has('notme')) localStorage.removeItem('er_owner');
+    window.erOwner = localStorage.getItem('er_owner') === '1';
+  } catch (e) {}
+  if (window.erOwner) window['ga-disable-G-0393JT1X67'] = true;
   window.amplitude.init('46b74a7ee8f4e51a4739d9caa7ae5a76', {
     fetchRemoteConfig: true,
-    autocapture: true
+    autocapture: true,
+    optOut: window.erOwner
   });</script>
 <!-- Google tag (GA4) -->
 <script async src="https://www.googletagmanager.com/gtag/js?id=G-0393JT1X67"></script>
